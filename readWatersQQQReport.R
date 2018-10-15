@@ -1,10 +1,68 @@
 library(tidyverse)
 library(readxl)
+library(xmltools)
 
-excel_input <- read_excel("F:/DIC test file 10-2-18.xlsm",
-                          sheet= 1,
-                          guess_max = 10000,
-                          na = c("NaN",""))
+### Parse XML File is a slow and sloppy way
+
+file3 <- "DIC test file 10-2-18_2.xml"
+
+doc3 <- xmlParse(file3)
+
+class(doc3)
+
+xmltop = xmlRoot(doc3)
+class(xmltop)
+xmlName(xmltop)
+xmlSize(xmltop)
+xmlName(xmltop[[1]])
+
+xmlName(xmltop[[3]][[1]][[2]])
+
+sample.data <- xmlSApply(xmltop[[3]][[1]][[2]], xmlAttrs)
+
+list <- xmlToList(xmltop[[3]][[1]][[2]])
+
+f1 <- function(x) {
+  unlist(as.list(bind_cols((map(x, dplyr::bind_rows)))))
+}
+
+f2 <- function(x) {
+  map_at(x, "PEAK", .f = f1)
+}
+
+f3 <- function(x) {
+  f1(f2(x))
+}
+
+f4 <- function(x) {
+  map_at(x, "COMPOUND", .f = f3)
+}
+
+f5 <-function(x) {
+  
+  sub_df1 <- map(f4(x)[which(names(f4(x)) == "COMPOUND")], dplyr::bind_rows) %>%
+    bind_rows()
+  
+  sub_df2 <- map(f4(x)[which(names(f4(x)) != "COMPOUND")], dplyr::bind_rows) %>%
+    bind_cols()
+  
+  cbind(sub_df1,sub_df2)
+  
+}
+
+f6 <- function(x) {
+  sub_df <- map(list[which(names(list) == "SAMPLE")], f5) %>% bind_rows()
+  
+  attr <- as.data.frame(map(list[which(names(list) != "SAMPLE")], bind_rows))
+  
+  cbind(sub_df,attr)
+}
+
+unnested <- f6(list)
+
+
+
+
 
 calibration_info <- excel_input %>%
   select(id39,name40,type41,ref,rah,type42,origin,weighting,axistrans,curve,rsquared) %>%
@@ -51,7 +109,7 @@ IS_data <- excel_input %>%
 
 final_data <- left_join(raws_data,IS_data)
 
-colnames(final_data) <- c("Sample List No.","Raw Data File (.raw)","Date Analyzed","Vial no.","Injection Vol. (µL)","Sample ID","QuanLynx (.mdb) Method ID","Analyte Name","Sample Type","Quan Ion (m/z -> m/z)","Quan Ion RT (min)","Quan Ion Peak Area (counts)","Qual Ion (m/z -> m/z)", "Standard Concentration", "Theor. Conc.", "% Diff", "Quan Ion Flags", "Internal Standard","Internal Standard MRM","Internal Standard Retention Time (min)","Internal Standard Peak Area (counts)")
+colnames(final_data) <- c("Sample List No.","Raw Data File (.raw)","Date Analyzed","Vial no.","Injection Vol. (?L)","Sample ID","QuanLynx (.mdb) Method ID","Analyte Name","Sample Type","Quan Ion (m/z -> m/z)","Quan Ion RT (min)","Quan Ion Peak Area (counts)","Qual Ion (m/z -> m/z)", "Standard Concentration", "Theor. Conc.", "% Diff", "Quan Ion Flags", "Internal Standard","Internal Standard MRM","Internal Standard Retention Time (min)","Internal Standard Peak Area (counts)")
 
 write_excel_csv(final_data, "QQQ Output.csv")
 
