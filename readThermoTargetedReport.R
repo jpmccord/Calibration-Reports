@@ -6,36 +6,43 @@ check.packages <- function(package){
   sapply(package, require, character.only = TRUE)
 }
 
-packages<-c("tidyverse", "readxl")
+check.packages(c("tidyverse", "readxl"))
 
-check.packages(packages)
+readThermoTargetedSheet <- function(sheetname, file) {
 
-file <- c("NJ_SolvayX_042518_Long.xlsx")
+the.sheet <- as.tibble(
+      read_excel(file,
+                 sheet = sheetname,
+                 skip = 4,
+                 trim_ws = TRUE,
+                 col_types = "text",
+                 na = c("","NA","NF","ND"))  )
+
+result <- head(the.sheet,-6)
+
+result["Cmp"] <- sheetname
+
+return(result)
+}
 
 readThermoTargetedReport <- function(file) {
 sheetnames <- excel_sheets(file)
+n_sheets <- length(sheetnames) -2
+  
+vector <- vector("list", length=n_sheets)
 
-input.matrix <- as.tibble(read_excel(file, sheet = sheetnames[1], range = "A5:A43"))
-
-for (sheet in 1:(length(sheetnames)-2)) {
-  
-  sheet.compound <- colnames(read_excel(file, sheet = sheetnames[sheet], range = "A3"))
-  
-  desiredframes <- c("Filename","cmp", "Area")
-  
-  input.sheet <- read_excel(file, sheet = sheetnames[sheet], skip = 4, na = c("NF", "NA", "")) %>%
-    mutate(cmp = sheet.compound)
-  
-  output.sheet <- input.sheet[,desiredframes]
-  
-  output.sheet <- filter(output.sheet, Filename %in% input.matrix$Filename)
-  
-  input.matrix <- full_join(input.matrix,output.sheet)
-  
+for (i in 1:n_sheets) {
+  vector[[i]] <- readThermoTargetedSheet(sheetname = sheetnames[i], file = file)
 }
 
-compound.abuns <- input.matrix %>%
-  spread(key = cmp, value = Area) %>%
-  filter(!grepl("Blank",Filename)) %>%
-  mutate(Id = as.numeric(str_extract(Filename,"[0-9]*$")))
+summary <- bind_rows(vector) %>%
+  mutate_at(vars(one_of("Exp Amt","Calc Amt","%Diff", "%RSD-AMT","Response Ratio","Area","Height","ISTD Area","ISTD Ht",
+                        "RT","Rel RT", "Del RT", "S/N","Start Time","End Time","Start Height","End Height","Search Window",
+                        "Duration","Sample Wt", "Sample Vol", "ISTD Base Amt","ISTD Calc Amt", "Dilution Factor")),
+            funs(as.numeric))
+
 }
+
+#file <- c("C:/Users/Orbitrap-Processing/Documents/R Scripts/Calibration-Reports/Sample Long Report.xls")
+
+#summary <- readThermoTargetedReport(file)
