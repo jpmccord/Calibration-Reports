@@ -1,89 +1,119 @@
+check.packages <- function(package){
+  new.package <- package[!(package %in% installed.packages()[, "Package"])]
+  if (length(new.package)) 
+    install.packages(new.package, dependencies = TRUE)
+  sapply(package, require, character.only = TRUE)
+}
 
-library(readxl)
-library(tidyverse)
-library(investr)
-library(rafalib)
+check.packages(c("tidyverse", "readxl", "investr"))
 
-inputSheet <- "F:/Documents/R Scripts/Thermo Quan Reports/TestSheet.xlsx"
+inputFile <- "Sample Short Report.XLS"
 
-allSheets <- excel_sheets(inputSheet)
+data <- readThermoTargetedReport(inputFile)
 
-chosenCmp <- allSheets[1]
+calCurves <- dplyr::filter(data, Sample.Type == "Standard", Exp.Amt > 0.1, Cmp == "PFOA") 
 
-  subSheet <- read_excel(inputSheet, sheet = chosenCmp) %>% dplyr::rename_all(funs(make.names(.)))
+sampleCurves <- dplyr::filter(data, Sample.Type == "Sample")
+
+qcCurves <- dplyr::filter(data, Sample.Type == "QC")
+
+formula.lm <- formula(Area.Ratio ~ Exp.Amt)
+formula.qd <- formula(Area.Ratio ~ Exp.Amt + I(Exp.Amt^2)) 
+
+calCurve.model.lm1x <- lm(formula = formula.qd,
+                          weights = 1/Exp.Amt,
+                          data = as.data.frame(calCurves))
+
+plotFit(calCurve.model.lm1x, interval = "prediction")
+
+plotFit(calCurve.model.lm1x, interval = "confidence")
+
+invest(calCurve.model.lm1x, y0 = 0.5, interval = "inversion")
+
+invest(calCurve.model.lm1x, y0 = 0.5, interval = "Wald")
+
+invest(calCurve.model.lm1x, y0 = 0.5, interval = "percentile", nsim = 9999)
+
+
+calibrateCmp <- function(cmp, dataset) {
   
-  calCurve <- dplyr::filter(subSheet, Sample.Type == "Standard", Std.Concentration != 0)
+  calCurve <- dplyr::filter(data, Sample.Type == "Standard", is.na(Peak.Status) | Peak.Status != "Excluded", Cmp == cmp)
   
-  sampleCurve <- dplyr::filter(subSheet, Sample.Type == "Sample")
-  
-  qcCurve <- dplyr::filter(subSheet, Sample.Type == "QC")
-  
-  formula.lm <- formula(Area.Ratio ~ Std.Concentration)
-  formula.qd <- formula(Area.Ratio ~ Std.Concentration + I(Std.Concentration^2)) 
+  formula.lm <- formula(Area.Ratio ~ Exp.Amt)
+  formula.qd <- formula(Area.Ratio ~ Exp.Amt + I(Exp.Amt^2)) 
   
   calCurve.model.lm1x <- lm(formula = formula.lm,
-                            weights = 1/Std.Concentration,
+                            weights = 1/Exp.Amt,
                             data = as.data.frame(calCurve))
   
   calCurve.model.lm1x2 <- lm(formula = formula.lm,
-                            weights = 1/Std.Concentration^2,
-                            data = as.data.frame(calCurve))
-  
-  calCurve.model.qd1x <- lm(formula = formula.qd,
-                             weights = 1/Std.Concentration,
+                             weights = 1/Exp.Amt^2,
                              data = as.data.frame(calCurve))
   
-  calCurve.model.qd1x2 <- lm(formula = formula.qd,
-                            weights = 1/Std.Concentration^2,
+  calCurve.model.qd1x <- lm(formula = formula.qd,
+                            weights = 1/Exp.Amt,
                             data = as.data.frame(calCurve))
-
-  mypar(2,2) 
   
-  plotFit(calCurve.model.lm1x, interval = "prediction", main = "Linear | weight = 1/x", extend.range = TRUE)
-  plotFit(calCurve.model.lm1x2, interval = "prediction", main = "Linear | weight = 1/x^2",extend.range = TRUE)
-  plotFit(calCurve.model.qd1x, interval = "prediction", main = "Quad | weight = 1/x",extend.range = TRUE)
-  plotFit(calCurve.model.qd1x2, interval = "prediction", , main = "Quad | weight = 1/x^2",extend.range = TRUE)
+  calCurve.model.qd1x2 <- lm(formula = formula.qd,
+                             weights = 1/Exp.Amt^2,
+                             data = as.data.frame(calCurve))  
+  model.labels = c("Linear weight = 1/x",
+            "Linear weight = 1/x^2",
+            "Quadratic weight  = 1/x",
+            "Qudratic weight = 1/x^2")
   
-  summary(calCurve.model.lm1x)
-
-  fitSummary <- tibble(
-    model = c("Linear weight = 1/x",
-              "Linear weight = 1/x^2",
-              "Quadratic weight  = 1/x",
-              "Qudratic weight = 1/x^2"),
-    formula = c(paste0("y = ", round(calCurve.model.lm1x$coefficients[1], 4)," + ", round(calCurve.model.lm1x$coefficients[2],4), "x"),
-                paste0("y = ", round(calCurve.model.lm1x2$coefficients[1], 4)," + ", round(calCurve.model.lm1x2$coefficients[2],4), "x"),
-                paste0("y = ", round(calCurve.model.qd1x$coefficients[1], 4)," + ", round(calCurve.model.qd1x$coefficients[2],4), "x"),
-                paste0("y = ", round(calCurve.model.qd1x2$coefficients[1], 4)," + ", round(calCurve.model.qd1x2$coefficients[2],4), "x")),
-    R2 = c(summary(calCurve.model.lm1x)$r.squared,
-           summary(calCurve.model.lm1x2)$r.squared,
-           summary(calCurve.model.qd1x)$r.squared,
-           summary(calCurve.model.qd1x2)$r.squared)) %>%
-    mutate(R2 = round(R2,4))
+  model.list <- list(calCurve.model.lm1x, calCurve.model.lm1x2, calCurve.model.qd1x,calCurve.model.qd1x2)
   
-  stored.models <- list(calCurve.model.lm1x,
-                   calCurve.model.lm1x2,
-                   calCurve.model.qd1x,
-                   calCurve.model.qd1x2)
-  
-calCurve.model <- stored.models[[which(fitSummary$R2 == max(fitSummary$R2))]]
-
-samples <- unique(sampleCurve$Sample)
-
-reverse.calibration <- function(subject) {
-  measures <- dplyr::filter(sampleCurve, Sample == subject)$Area.Ratio
-  
-  lower.bound = min(calCurve$Std.Concentration) - 0.5*(max(calCurve$Std.Concentration)-min(calCurve$Std.Concentration))
-  upper.bound = 2*max(calCurve$Std.Concentration) + (max(calCurve$Std.Concentration)-min(calCurve$Std.Concentration))
+  names(model.list) <- model.labels
     
+  model_frame <- enframe(model.list, name = "modelName", value = "model")
+  
+  fits <- map(.x = model_frame$model, .f = broom::glance) %>%
+    bind_rows()
+  
+  which.model = which(fits$adj.r.squared == max(fits$adj.r.squared))
+  
+  calibration.model <- model.list[[which.model]]
+  
+  return = list(calibration.model)
+  
+  return(return)
+}
+
+calibrateDataset <- function(dataset) {
+  quant_compounds <- dataset %>% group_by(Cmp) %>%
+    summarize(ISTD.Response = mean(ISTD.Response)) %>%
+    filter(!is.na(ISTD.Response))
+
+sapply(quant_compounds$Cmp, dataset = data, FUN = calibrateCmp)
+}
+
+getSamplePredictions <- function(dataset){
+
+dataset_models <- calibrateDataset(dataset)
+
+sample_measures <- dplyr::filter(dataset, Sample.Type == "Sample") %>%
+  group_by(Cmp) %>%
+  select(Cmp,Sample.Name,Sample.ID,Raw.Response,ISTD.Response) %>%
+  mutate(Area.Ratio = Raw.Response/ISTD.Response) %>%
+  filter(Cmp %in% names(dataset_models))
+
+reverse.calibration <- function(subject, Cmp, dataset) {
+  measures <- dplyr::filter(dataset, Sample.ID == subject, Cmp == cmp)$Area.Ratio
+  
+  lower.bound = min(calCurve$Exp.Amt) - 0.5*(max(calCurve$Exp.Amt)-min(calCurve$Exp.Amt))
+  upper.bound = 2*max(calCurve$Exp.Amt) + (max(calCurve$Exp.Amt)-min(calCurve$Exp.Amt))
+  
+  calCurve.model <- dataset_models[[Cmp]]
+  
   results <- try(invest(calCurve.model,
-       y0 = measures,
-       interval = "Wald",
-       extendInt = "yes",
-       lower = lower.bound,
-       upper = upper.bound,
-       maxiter = 1e7),
-       silent = TRUE)
+                        y0 = measures,
+                        interval = "Wald",
+                        extendInt = "yes",
+                        lower = lower.bound,
+                        upper = upper.bound,
+                        maxiter = 1e7),
+                 silent = TRUE)
   
   if (inherits(results, "try-error")) {
     #print(paste("Prediction bounds not contained in the search interval (", lower.bound, 
@@ -98,20 +128,34 @@ reverse.calibration <- function(subject) {
     return(results.frame)
     
   } else {
-  
-  results.frame <- data.frame(subject = as.character(subject),
-                              estimate = results$estimate,
-                              lower = results$lower,
-                              upper = results$upper)
-  
-  return(results.frame)
+    
+    results.frame <- tibble(subject = as.character(subject),
+                                estimate = results$estimate,
+                                lower = results$lower,
+                                upper = results$upper,
+                                Cmp = Cmp)
+    
+    return(results.frame)
   }
 }
 
-predictions <- plyr::ldply(samples, reverse.calibration)
+subjects <- unique(sample_measures$Sample.ID)
 
-ggplot(predictions) +
-  geom_point(aes(x = subject, y = estimate)) +
-  geom_errorbar(aes(x = subject, ymin = lower, ymax = upper), width = 0.1)
+Cmps <- unique(sample_measures$Cmp)
+
+predictsubjects<- function(Cmp) {lapply(subjects, Cmp = Cmp, FUN = reverse.calibration, dataset = sample_measures) %>%
+  bind_rows()
+}
+
+predictions <- lapply(Cmps, FUN=predictsubjects) %>%
+  bind_rows()
+
+}
+
+ggplot(filter(predictions, Cmp == "PFOA")) +
+  theme_minimal()+
+  geom_point(aes(y = Cmp, x = estimate), position = position_jitter(height = 0.05)) +
+  geom_tile(aes(y = Cmp, x = predictions[[1,2]], width = (upper-lower)/2, height = 0.05), alpha = 0.05)
+
+
   
-

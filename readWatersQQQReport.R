@@ -1,24 +1,23 @@
-library(tidyverse)
-library(readxl)
-library(xmltools)
+check.packages <- function(package){
+  new.package <- package[!(package %in% installed.packages()[, "Package"])]
+  if (length(new.package)) 
+    install.packages(new.package, dependencies = TRUE)
+  sapply(package, require, character.only = TRUE)
+}
+
+check.packages(c("tidyverse", "readxl", "xmltools"))
+
+readXMLQQQReport <- function(file) {
 
 ### Parse XML File is a slow and sloppy way
 
-file3 <- "DIC test file 10-2-18_2.xml"
+#file <- "DIC test file 10-2-18_2.xml"
 
-doc3 <- xmlParse(file3)
+doc3 <- xmlParse(file)
 
-class(doc3)
+xmltop <- xmlRoot(doc3)
 
-xmltop = xmlRoot(doc3)
-class(xmltop)
-xmlName(xmltop)
-xmlSize(xmltop)
-xmlName(xmltop[[1]])
-
-xmlName(xmltop[[3]][[1]][[2]])
-
-sample.data <- xmlSApply(xmltop[[3]][[1]][[2]], xmlAttrs)
+#sample.data <- xmlSApply(xmltop[[3]][[1]][[2]], xmlAttrs)
 
 list <- xmlToList(xmltop[[3]][[1]][[2]])
 
@@ -38,7 +37,7 @@ f4 <- function(x) {
   map_at(x, "COMPOUND", .f = f3)
 }
 
-f5 <-function(x) {
+f5 <- function(x) {
   
   sub_df1 <- map(f4(x)[which(names(f4(x)) == "COMPOUND")], dplyr::bind_rows) %>%
     bind_rows()
@@ -60,7 +59,9 @@ f6 <- function(x) {
 
 unnested <- f6(list)
 
+return(unnested)
 
+}
 
 
 
@@ -117,6 +118,7 @@ write_excel_csv(final_data, "QQQ Output.csv")
 
 ### Trying Calcurve predction intervals
 diclofenac <- filter(final_data, `Analyte Name` == "Diclofenac", `Sample Type` == "Standard") %>%
+  rename_all(funs(make.names(.))) %>%
   mutate(Response = `Quan Ion Peak Area (counts)`/`Internal Standard Peak Area (counts)`) %>% filter(`Standard Concentration` != 0 )
 
 ggplot(diclofenac) +

@@ -9,7 +9,7 @@ check.packages <- function(package){
 check.packages(c("tidyverse", "readxl"))
 
 readThermoTargetedSheet <- function(sheetname, file) {
-  
+options(warn = 0)
 checkLong <- length(read_excel(file,
                         sheet = sheetname,
                         skip = 4,
@@ -45,9 +45,14 @@ if (checkLong) {
                na = c("","NA","NF","ND"))  )
 }
 
-result <- head(the.sheet,-6)
+result <- head(the.sheet,-6) %>%
+  rename(Raw.Response = Area,
+         ISTD.Response = `ISTD Area`) %>%
+  rename_at(vars(one_of("Amount", "Exp Amount")), funs(paste0("Exp.Amt")))
 
 result["Cmp"] <- sheetname
+
+options(warn = 1)
 
 return(result)
 }
@@ -63,11 +68,12 @@ for (i in 1:n_sheets) {
 }
 
 summary <- bind_rows(vector) %>%
-  mutate_at(vars(one_of("Exp Amt","Calc Amt","%Diff", "%RSD-AMT","Response Ratio","Area","Height","ISTD Area","ISTD Ht",
-                        "RT","Rel RT", "Del RT", "S/N","Start Time","End Time","Start Height","End Height","Search Window",
-                        "Duration","Sample Wt", "Sample Vol", "ISTD Base Amt","ISTD Calc Amt", "Dilution Factor")),
-            funs(as.numeric)) %>%
-  mutate(batch = basename(file))
+  mutate(batch = basename(file)) %>%
+  dplyr::rename_all(funs(make.names(.))) %>%
+  mutate(Sample.Type = case_when(Sample.Type %in% c("Standard", "Standard Bracket Sample", "Std", "Std Bracket Sample") ~ "Standard",
+                                 Sample.Type %in% c("Blank", "Blank Sample") ~ "Blank",
+                                 Sample.Type %in% c("Aanlyte", "Unknown Sample", "Unknown") ~ "Sample",
+                                 Sample.Type %in% c("QC", "QC Sample") ~ "QC"))
 
 }
 
@@ -75,8 +81,8 @@ readBatchedThermoExperiment <- function(filelist) {
   
 batch <- sapply(filelist, FUN = readThermoTargetedReport)
 
-bind_rows(batch) #does not work with mixed short and long report formats, extend functionality later
-  
+bind_rows(batch)#does not work with mixed short and long report formats, extend functionality later
+
 }
 
 #file <- c("Sample Long Report.xls")
