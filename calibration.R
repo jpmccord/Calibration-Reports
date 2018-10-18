@@ -73,9 +73,7 @@ calibrateCmp <- function(cmp, dataset) {
   
   which.model = which(fits$adj.r.squared == max(fits$adj.r.squared))
   
-  calibration.model <- model.list[[which.model]]
-  
-  return = list(calibration.model)
+  return = list(model.labels[[which.model]], model.list[[which.model]])
   
   return(return)
 }
