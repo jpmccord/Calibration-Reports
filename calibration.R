@@ -163,12 +163,12 @@ calpredictions <- getSamplePredictions(data)
 plot_file <- calpredictions %>%
   mutate(Cmp = as.factor(Cmp)) %>%
   mutate(color_me = ifelse(subject == "527", TRUE, FALSE)) %>%
-  filter(Cmp %in% c("PFOA", "PFOS", "GenX"))
+  filter(Cmp %in% c("PFOA", "PFOS", "GenX", "Naf_bp1", "Naf_bp2"))
 
 ggplot() +
   theme_minimal()+
-  geom_point(data = filter(plot_file, color_me == FALSE), aes(y = Cmp, x = estimate), position = position_jitter(height = 0.05), shape = 5, color = "blue", alpha = 0.25) +
-  geom_point(data = filter(plot_file, color_me == TRUE), aes(y = Cmp, x = estimate), color = "green", shape = 21) +
+  geom_point(data = filter(plot_file, color_me == FALSE), aes(y = Cmp, x = estimate), position = position_jitter(height = 0.05), shape = 1, color = "blue", alpha = 0.25) +
+  geom_point(data = filter(plot_file, color_me == TRUE), aes(y = Cmp, x = estimate), color = "green", shape = 16) +
   geom_tile(data = filter(plot_file, color_me == TRUE), aes(x = estimate, y = Cmp, width = (lower-upper)/2), height = 0.5, alpha = 0.1)
 
   
