@@ -79,9 +79,6 @@ getSamplePredictions <- function(dataset){
     lower.bound = min(calCurve$Exp.Amt) - 0.5*(max(calCurve$Exp.Amt)-min(calCurve$Exp.Amt))
     upper.bound = 2*max(calCurve$Exp.Amt) + (max(calCurve$Exp.Amt)-min(calCurve$Exp.Amt))
     
-    
-    
-    
     results <- try(invest(calCurve.model,
                           y0 = measures,
                           interval = "Wald",
