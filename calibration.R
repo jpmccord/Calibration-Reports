@@ -7,34 +7,6 @@ check.packages <- function(package){
 
 check.packages(c("tidyverse", "readxl", "investr", "broom"))
 
-inputFile <- "Sample Short Report.XLS"
-
-data <- readThermoTargetedReport(inputFile)
-
-calCurves <- dplyr::filter(data, Sample.Type == "Standard", Exp.Amt > 0.1, Cmp == "PFOA") 
-
-sampleCurves <- dplyr::filter(data, Sample.Type == "Sample")
-
-qcCurves <- dplyr::filter(data, Sample.Type == "QC")
-
-formula.lm <- formula(Area.Ratio ~ Exp.Amt)
-formula.qd <- formula(Area.Ratio ~ Exp.Amt + I(Exp.Amt^2)) 
-
-calCurve.model.lm1x <- lm(formula = formula.qd,
-                          weights = 1/Exp.Amt,
-                          data = as.data.frame(calCurves))
-
-plotFit(calCurve.model.lm1x, interval = "prediction")
-
-plotFit(calCurve.model.lm1x, interval = "confidence")
-
-invest(calCurve.model.lm1x, y0 = 0.5, interval = "inversion")
-
-invest(calCurve.model.lm1x, y0 = 0.5, interval = "Wald")
-
-invest(calCurve.model.lm1x, y0 = 0.5, interval = "percentile", nsim = 9999)
-
-
 calibrateCmp <- function(Comp, dataset) {
   
   calCurve <- dplyr::filter(data, Sample.Type == "Standard", is.na(Peak.Status) | Peak.Status != "Excluded", Cmp == Comp)
@@ -127,7 +99,8 @@ getSamplePredictions <- function(dataset){
       results.frame <- data.frame(subject = as.character(subject),
                                   estimate = as.numeric(NA),
                                   lower = as.numeric(NA),
-                                  upper = as.numeric(NA))
+                                  upper = as.numeric(NA),
+                                  Cmp = cmp)
       
       return(results.frame)
       
@@ -156,22 +129,3 @@ getSamplePredictions <- function(dataset){
   
 }
 
-calmodels <- calibrateDataset(data)
-
-calpredictions <- getSamplePredictions(data)
-
-plot_file <- calpredictions %>%
-  mutate(Cmp = as.factor(Cmp)) %>%
-  mutate(color_me = ifelse(subject == "527", TRUE, FALSE)) %>%
-  filter(Cmp %in% c("PFOA", "PFOS", "GenX", "Naf_bp1", "Naf_bp2"))
-
-ggplot() +
-  theme_minimal()+
-  geom_point(data = filter(plot_file, color_me == FALSE), aes(y = Cmp, x = estimate), position = position_jitter(height = 0.05), shape = 1, color = "blue", alpha = 0.25) +
-  geom_point(data = filter(plot_file, color_me == TRUE), aes(y = Cmp, x = estimate), color = "green", shape = 16) +
-  geom_tile(data = filter(plot_file, color_me == TRUE), aes(x = estimate, y = Cmp, width = (lower-upper)/2), height = 0.5, alpha = 0.1)
-
-  
-
-
-  

@@ -75,12 +75,13 @@ summary <- bind_rows(vector) %>%
                                  Sample.Type %in% c("Blank", "Blank Sample") ~ "Blank",
                                  Sample.Type %in% c("Aanlyte", "Unknown Sample", "Unknown") ~ "Sample",
                                  Sample.Type %in% c("QC", "QC Sample") ~ "QC")) %>%
-  mutate(Batch = basename(file)) %>%
-  select(Batch,Sample.ID,Sample.Name,Sample.Type,Exp.Amt,Cmp,Raw.Response,ISTD.Response)
+  mutate(Batch = basename(file),
+         Area.Ratio = Raw.Response/ISTD.Response) %>%
+  select(Batch,Sample.ID,Sample.Name,Sample.Type,Exp.Amt,Cmp,Raw.Response,ISTD.Response,Area.Ratio,Peak.Status)
 
 }
 
-readBatchedThermoExperiment <- function(filelist) {
+readThermoBatchedExperiment <- function(filelist) {
   
 batch <- lapply(filelist, FUN = readThermoTargetedReport)
 
@@ -88,13 +89,13 @@ bind_rows(batch)#does not work with mixed short and long report formats, extend 
 
 }
 
-file <- c("Sample Long Report.xls")
+#file <- c("Sample Long Report.xls")
 #shortfile <- c("Sample Short Report.xls")
 
-filist <- c(file,shortfile)
+#filist <- c(file,shortfile)
 
-summary <- readThermoTargetedReport(file)
+#summary <- readThermoTargetedReport(file)
 
-summary<- readBatchedThermoExperiment(filist)
+#summary<- readBatchedThermoExperiment(filist)
 
 
