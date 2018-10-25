@@ -5,7 +5,7 @@ check.packages <- function(package){
   sapply(package, require, character.only = TRUE)
 }
 
-check.packages(c("tidyverse", "readxl", "xmltools"))
+check.packages(c("tidyverse", "readxl", "XML"))
 
 readXMLQQQReport <- function(file) {
 
