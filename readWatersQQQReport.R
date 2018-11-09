@@ -58,7 +58,6 @@ f6 <- function(x) {
 }
 
 unnested <- f6(list)
-
 return(unnested)
 
 }

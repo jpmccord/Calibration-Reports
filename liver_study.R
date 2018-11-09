@@ -145,12 +145,12 @@ stripchart(filter(data_display, is.na(adj.conc))$estimate, xlim = c(-5,20))
 
 boxplot(data = filter(data_display, truesex != ""), adj.conc ~ truesex + Trt)
 
-comparison <- lm(data = filter(data_display, truesex != ""), log(adj.conc) ~ sex + Trt)
+comparison <- lm(data = filter(data_display, truesex != ""), adj.conc ~ sex + Trt)
 
 car::Anova(comparison)
 
 comparison3 <- lmer(data = filter(data_display, truesex != ""),
-                    log(adj.conc) ~ truesex + Trt + (1|litter))
+                    adj.conc ~ truesex + Trt + (1|litter))
 
 tidy(comparison3)
 
@@ -158,9 +158,29 @@ summary(comparison3)
 
 car::Anova(comparison3)
 
+
+lattice::xyplot(data = filter(data_display, truesex != ""),
+       adj.conc ~ Trt | litter)
+
 qqnorm(log10(data_display$adj.conc))
 
 ggplot(filter(data_display, !is.na(truesex))) +
   theme_bw()+
   geom_point(aes(x = mousetype, y=adj.conc, color=truesex)) +
   facet_wrap(~Trt, scales = "free_y")
+
+ggplot(filter(data_display, !is.na(truesex)))+
+  theme_bw()+
+  geom_boxplot(aes(y = adj.conc, color = truesex)) +
+  facet_wrap(~Trt, scales = "free_y")
+
+ggplot(filter(data_display, !is.na(truesex)))+
+  theme_bw()+
+  geom_point(aes(x = Trt, y = adj.conc, color = truesex))
+
+ggplot(filter(data_display, !is.na(truesex)))+
+  theme_bw()+
+  geom_point(aes(x = Trt, y = adj.conc, color = truesex)) +
+  facet_wrap(~litter)
+
+
