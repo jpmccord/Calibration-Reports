@@ -9,7 +9,7 @@ check.packages(c("tidyverse", "readxl", "investr", "broom"))
 
 calibrateCmp <- function(Comp, dataset) {
   
-  calCurve <- dplyr::filter(data, Sample.Type == "Standard", is.na(Peak.Status) | Peak.Status != "Excluded", Cmp == Comp)
+  calCurve <- dplyr::filter(dataset, Sample.Type == "Standard", is.na(Peak.Status) | Peak.Status != "Excluded", Cmp == Comp)
   
   formula.lm <- formula(Area.Ratio ~ Exp.Amt)
   formula.qd <- formula(Area.Ratio ~ Exp.Amt + I(Exp.Amt^2)) 
@@ -50,10 +50,10 @@ calibrateCmp <- function(Comp, dataset) {
   return(return)
 }
 
-calibrateDataset <- function(dataset) {
-  quant_compounds <- dataset %>% group_by(Cmp) %>%
+calibrateDataset <- function(data) {
+  quant_compounds <- output %>% group_by(Cmp) %>%
     summarize(ISTD.Response = mean(ISTD.Response)) %>%
-    filter(!is.na(ISTD.Response))
+    filter(!is.na(ISTD.Response) & ISTD.Response > 1)
   
   sapply(quant_compounds$Cmp, dataset = data, FUN = calibrateCmp)
 }
@@ -122,7 +122,8 @@ getSamplePredictions <- function(dataset){
   }
   
   predictions <- lapply(Cmps, FUN=predictsubjects) %>%
-    bind_rows()
+    bind_rows() %>%
+    rename(`Sample.ID` = subject)
   
 }
 
