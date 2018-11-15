@@ -8,10 +8,14 @@ output <- input
 
 calibrations <- calibrateDataset(output)
 
-prettyPrint_calibration <- function(calibrations, Compound, band = "prediction", alpha = 0.95, stdunits =NA, ...){
+prettyPrint_calibration <- function(calibrations, Compound, band = "prediction", alpha = 0.95, stdunits =NULL, ...){
 
   calibration_model <- calibrations[[Compound]]
   
+  if(is.null(calibration_model)) {
+    stop("Calibration not found")
+  }
+
   cal_data <- calibration_model$model
   
   cal_formula <- as.formula(calibration_model$terms)
@@ -37,20 +41,74 @@ prettyPrint_calibration <- function(calibrations, Compound, band = "prediction",
           ...)
 }
 
-prettySummary <- function(calibrations, Compound){
+prettySummary_calibration <- function(calibrations, Compound){
+
   calibration_model <- calibrations[[Compound]]
   
-  cal_data <- calibration_model$model
+  if(is.null(calibration_model)) {
+    stop("Calibration not found")
+  }
+  
+  calCurve <- calibration_model$model
   
   cal_formula <- as.formula(calibration_model$terms)
   
-  new_call <- lm(cal_formula,
-                 data = cal_data,
+  calCurve.model  <- lm(cal_formula,
+                 data = calCurve,
                  weights = `(weights)`)
+
+  lower.bound = min(calCurve$Exp.Amt) - 0.5*(max(calCurve$Exp.Amt)-min(calCurve$Exp.Amt))
+  upper.bound = 2*max(calCurve$Exp.Amt) + (max(calCurve$Exp.Amt)-min(calCurve$Exp.Amt))
   
-  summary(new_call)
+  reverse.calibration <- function(measures) {
   
+  results <- try(invest(calCurve.model,
+                          y0 = measures,
+                          interval = "inversion",
+                          extendInt = "yes",
+                          level = .99,
+                          lower = lower.bound,
+                          upper = upper.bound,
+                          maxiter = 1e7),
+                   silent = TRUE)
+    
+    if (inherits(results, "try-error")) {
+      #print(paste("Prediction bounds not contained in the search interval (", lower.bound, 
+      #           ", ", upper.bound, "). ", 
+      #           "Try tweaking the values of lower and upper.", sep = ""))
+      
+      results.frame <- data.frame(subject = as.character(subject),
+                                  estimate = as.numeric(NA),
+                                  lower = as.numeric(NA),
+                                  upper = as.numeric(NA),
+                                  Cmp = cmp)
+      
+      return(results.frame)
+      
+    } else {
+      
+      results.frame <- tibble(estimate = results$estimate,
+                              lower = results$lower,
+                              upper = results$upper,
+                              Cmp = Compound)
+      
+      return(results.frame)
+    }
+  
+  }
+
+  back_preds <- lapply(FUN = reverse.calibration, calCurve$Area.Ratio) %>% bind_rows()
+  
+  compare <- cbind(back_preds,calCurve) %>%
+    select(Cmp, Exp.Amt, Area.Ratio, estimate,upper,lower) %>%
+    mutate(dev = round((Exp.Amt - estimate)/Exp.Amt * 100,2),
+          inpred = (Exp.Amt > lower & Exp.Amt < upper))
+  
+  return(compare)
 }
+
+sapply(calCurve$Area.Ratio, FUN = results)
+
 
 preds <- output %>%
   group_by(Batch) %>%
