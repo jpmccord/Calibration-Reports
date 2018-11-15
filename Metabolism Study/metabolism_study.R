@@ -3,25 +3,54 @@ source("calibration.R")
 
 input <- readXMLQQQReport("Metabolism Study/APR G4.xml")
 
-output <- input %>% 
-  mutate(Cmp = calibref,
-         Raw.Response = as.numeric(area1),
-         ISTD.Response = as.numeric(area),
-         Area.Ratio = Raw.Response/ISTD.Response,
-         Sample.Type = type,
-         Sample.Name = name,
-         Sample.ID = id,
-         Sample.Desc = desc,
-         Exp.Amt = as.numeric(stdconc),
-         Peak.Status = pkflags,
-         Batch = basename(.attrs.filename))%>%
-  select(Cmp,Raw.Response,ISTD.Response,Area.Ratio,Sample.Type,Sample.Name,Sample.Desc,Sample.ID,Exp.Amt,Peak.Status,Batch) %>%
-  mutate(Sample.Type = case_when(Sample.Type %in% c("Standard", "Standard Bracket Sample", "Std", "Std Bracket Sample") ~ "Standard",
-                                 Sample.Type %in% c("Blank", "Blank Sample") ~ "Blank",
-                                 Sample.Type %in% c("Analyte", "Unknown Sample", "Unknown") ~ "Sample",
-                                 Sample.Type %in% c("QC", "QC Sample") ~ "QC"))
+output <- input 
+  
 
 calibrations <- calibrateDataset(output)
+
+prettyPrint_calibration <- function(calibrations, Compound, band = "prediction", alpha = 0.95, stdunits =NA, ...){
+
+  calibration_model <- calibrations[[Compound]]
+  
+  cal_data <- calibration_model$model
+  
+  cal_formula <- as.formula(calibration_model$terms)
+  
+  new_call <- lm(cal_formula,
+                 data = cal_data,
+                 weights = `(weights)`)
+  
+  plot_title = paste(Compound, "\n", "y =",
+                     signif(calibration_model$coefficients["(Intercept)"],4), "+",
+                     signif(calibration_model$coefficients["Exp.Amt"],4), "* X",
+                     "+", signif(calibration_model$coefficients["I(Exp.Amt^2)"],4), "* X^2",
+                     ", R^2 =", signif(summary(new_call)$r.squared, 4))
+  
+  x_label = paste("Std Concentration", stdunits)
+  
+  plotFit(new_call,
+          interval = band,
+          level = 0.95,
+          ylab = "Response Factor",
+          xlab = x_label,
+          main = plot_title,
+          ...)
+}
+
+prettySummary <- function(calibrations, Compound){
+  calibration_model <- calibrations[[Compound]]
+  
+  cal_data <- calibration_model$model
+  
+  cal_formula <- as.formula(calibration_model$terms)
+  
+  new_call <- lm(cal_formula,
+                 data = cal_data,
+                 weights = `(weights)`)
+  
+  summary(new_call)
+  
+}
 
 preds <- output %>%
   group_by(Batch) %>%
