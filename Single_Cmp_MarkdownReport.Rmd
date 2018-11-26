@@ -1,0 +1,187 @@
+---
+title: "Calibration Report"
+output: 
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+check.packages <- function(package){
+  new.package <- package[!(package %in% installed.packages()[, "Package"])]
+  if (length(new.package)) 
+    install.packages(new.package, dependencies = TRUE)
+  sapply(package, require, character.only = TRUE)
+}
+
+suppressWarnings(suppressPackageStartupMessages(check.packages(c("tidyverse", "readxl", "investr", "broom", "kableExtra"))))
+
+knitr::opts_chunk$set(echo = FALSE)
+
+source("readWatersQQQReport.R")
+source("calibration.R")
+
+#source("C:/Users/Orbitrap-Processing/Documents/R Scripts/Calibration-Reports/Metabolism Study/metabolism_study.R")
+
+```
+# Experiment Summary
+```{r summary}
+sSummary <- input %>%
+  filter(Cmp == the.Compounds) %>%
+  group_by(Sample.Type) %>%
+  summarize(count = n(),
+            mean_Reponse = mean(Raw.Response),
+            sd_Response = sd(Raw.Response),
+            mean_ISTDReponse = mean(ISTD.Response),
+            sd_ISTDResponse = sd(ISTD.Response))
+```
+
+Experimental summary report for `r the.Compounds` from batch `r unique(input$Batch)`. 
+
+A total of `r sum(sSummary$count)` samples were run in this batch, containing `r sSummary[[which(sSummary$Sample.Type == "Blank"), 'count']]` blanks, and `r sSummary[[which(sSummary$Sample.Type == "Sample"), 'count']]` samples.
+
+## Raw Values Summary {.tabset}
+
+### Blanks
+```{r blank_summary, fig.align = "center", fig.show = "hold"}
+
+bSummary <- input %>% filter(Cmp == the.Compounds, Sample.Type == "Blank") %>%
+  arrange(Sample.ID) %>% 
+  rename(`Run Order` = Sample.ID) %>%
+  select(Sample.Name, Sample.Desc, `Run Order`, Raw.Response, ISTD.Response)
+
+bSummary
+
+bSummary_plot <- bSummary %>% gather(contains("Response"), key = "Response", value = "Signal")
+
+ggplot(bSummary_plot) +
+  theme_bw()+
+  geom_point(aes(x = "X", y = Signal, color = Response)) + 
+  scale_x_discrete(labels = "") +
+  facet_wrap(~Sample.Desc, scales = "free_y") +
+  labs( x = "")
+
+
+ggplot(bSummary_plot) +
+  theme_bw()+
+  geom_point(aes(x = `Run Order`, y = Signal, color = Response)) +
+  facet_wrap(~Sample.Desc, scales = "free_y")
+
+
+```
+
+### Samples
+```{r sampleraws_summary}
+
+srSummary <- input %>% filter(Cmp == the.Compounds, Sample.Type == "Sample") %>%
+  arrange(Sample.ID) %>% 
+  rename(`Run Order` = Sample.ID) %>%
+  select(Sample.Name, Sample.Desc, `Run Order`, Raw.Response, ISTD.Response)
+
+srSummary
+
+srSummary_plot <- srSummary %>% gather(contains("Response"), key = "Response", value = "Signal")
+
+ggplot(srSummary_plot) +
+  theme_bw()+
+  geom_point(aes(x = "X", y = Signal, color = Response)) + 
+  scale_x_discrete(labels = "") +
+  labs( x = "")
+
+
+ggplot(srSummary_plot) +
+  theme_bw()+
+  geom_point(aes(x = `Run Order`, y = Signal, color = Response))
+
+
+```
+
+
+
+
+## Calibration Summary {.tabset}
+
+### Calibration
+``` {r calibration_summary}
+
+cSummary <- input %>% filter(Cmp == the.Compounds, Sample.Type == "Standard") %>%
+  arrange(Sample.ID) %>% 
+  mutate(Area.Ratio = Raw.Response/ISTD.Response) %>%
+  rename(`Run Order` = Sample.ID,
+         Std.Conc = Exp.Amt)
+
+prettyPrint_calibration(calibrations, the.Compounds)
+
+cSummary <- prettySummary_calibration(calibrations, the.Compounds)  %>% 
+  left_join(cSummary) %>%
+  select(Sample.Name, Sample.Desc, `Run Order`, Raw.Response, ISTD.Response, Std.Conc, estimate, lower, upper, dev) 
+
+cSummary_table <- cSummary %>%
+  mutate(dev = cell_spec(dev, color = ifelse(abs(dev) > 20, "red", "black"))) %>%
+  rename(`% Dev` = dev,
+         Estimated.Conc = estimate,
+         lower_est = lower,
+         upper_est = upper)
+
+cSummary_table
+
+```
+
+### QC Samples
+``` {r QC_summary}
+
+qSummary <- input %>% filter(Cmp == the.Compounds, Sample.Type == "QC") %>%
+  arrange(Sample.ID) %>% 
+  mutate(Area.Ratio = Raw.Response/ISTD.Response) %>%
+  rename(`Run Order` = Sample.ID,
+         Std.Conc = Exp.Amt)
+
+if (dim(qSummary)[1] != 0) {
+
+getSamplePredictions(qSummary)
+
+cSummary <- prettySummary_calibration(calibrations, the.Compounds)  %>% 
+  left_join(cSummary) %>%
+  select(Sample.Name, Sample.Desc, `Run Order`, Raw.Response, ISTD.Response, Std.Conc, estimate, lower, upper, dev) 
+
+cSummary_table <- cSummary %>%
+  mutate(dev = cell_spec(dev, "html", color = ifelse(abs(dev) > 20, "red", "black"))) %>%
+  rename(`% Dev` = dev,
+         Estimated.Conc = estimate,
+         lower_est = lower,
+         upper_est = upper) %>%
+  kable(align = "c") %>%
+  kable_styling(c("striped","condensed"), full_width =FALSE)
+
+cSummary_table
+}
+
+```
+
+
+## Sample Summary 
+``` {r sample_summary}
+preds <- input %>%
+  filter(Cmp == the.Compounds) %>%
+  group_by(Batch) %>%
+  do(getSamplePredictions(.)) %>%
+  inner_join(input) %>%
+  ungroup() %>%
+  filter(!Sample.Type %in% c("Blank","Standard")) %>%
+  select(Sample.Name, Sample.Desc, Sample.ID, Raw.Response, ISTD.Response, estimate, lower, upper) %>%
+  rename(`Estimated.Conc` = estimate,
+         lower_est = lower,
+         upper_est = upper,
+         `Run Order` = Sample.ID)
+
+preds
+
+preds_plot <- preds %>% arrange(Sample.Desc)
+
+ggplot(preds_plot) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  scale_x_discrete(labels = abbreviate) +
+  geom_point(aes(x = Sample.Desc, y = Estimated.Conc)) +
+  geom_errorbar(aes(x = Sample.Desc, ymin = lower_est, ymax = upper_est), width = 0.2)
+```
+

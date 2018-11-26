@@ -51,7 +51,7 @@ calibrateCmp <- function(Comp, dataset) {
 }
 
 calibrateDataset <- function(data) {
-  quant_compounds <- output %>% group_by(Cmp) %>%
+  quant_compounds <- data %>% group_by(Cmp) %>%
     summarize(ISTD.Response = mean(ISTD.Response)) %>%
     filter(!is.na(ISTD.Response) & ISTD.Response > 1)
   
@@ -62,7 +62,7 @@ getSamplePredictions <- function(dataset){
   
   dataset_models <- calibrateDataset(dataset)
   
-  sample_measures <- dplyr::filter(dataset, Sample.Type == "Sample") %>%
+  sample_measures <- dplyr::filter(dataset, Sample.Type != "Blank") %>%
     group_by(Cmp) %>%
     select(Cmp,Sample.Name,Sample.ID,Raw.Response,ISTD.Response) %>%
     mutate(Raw.Response = ifelse(is.na(Raw.Response), 0, Raw.Response)) %>%
