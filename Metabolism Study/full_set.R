@@ -10,12 +10,16 @@ check.packages <- function(package){
 
 check.packages("here")
 
-input <- readXMLQQQReport("Metabolism Study/Batches/APR G1.xml")
+batches <- dir("Metabolism Study/Batches", full.names = TRUE)
+
+for (i in 1:length(batches)) {
+  
+input <- readXMLQQQReport(batches[[i]])
 
 calibrations <- calibrateDataset(input)
 
-for (i in 1:length(calibrations)) {
-  the.Compounds = names(calibrations[i])
+for (m in 1:length(calibrations)) {
+  the.Compounds = names(calibrations[m])
   
   preds <- input %>%
     filter(Cmp == the.Compounds) %>%
@@ -35,36 +39,34 @@ for (i in 1:length(calibrations)) {
                     output_format = "html_document",
                     output_file = paste0(the.Compounds,"_Report",".html"),
                     output_dir = "reports")
+  }
 }
-
-reports <- dir(here::here("reports"), pattern = ".csv", full.names = TRUE)
 
 myMergedData <- 
   do.call(rbind,
           lapply(list.files(path = here::here("reports"), pattern = ".csv", full.names = TRUE), read_csv)) %>%
+  unique()
 
-write_csv(myMergedData, paste0(here::here("reports"),"/","All_Compounds","_Report",".csv"))
+write_csv(myMergedData, paste0(here::here("reports/combined"),"/","All_Compounds","_Report",".csv"))
 
-#prettyPrint_calibration(calibrations, "Diclofenac")
+plot_table <- myMergedData %>%
+  mutate(sample = substr(Sample.Desc, 1, 5) ,
+         prep_type = substr(Sample.Desc, nchar(Sample.Desc)-1, nchar(Sample.Desc))) %>%
+  dplyr::filter(prep_type %in% c("AP"," R")) %>%
+  select(Cmp, sample, Estimated.Conc, prep_type) %>%
+  spread(prep_type, Estimated.Conc) %>%
+  mutate(short_sample = substr(sample,1,3)) %>%
+  mutate(short_sample = ifelse(short_sample == "2.5", "3.0", short_sample)) %>%
+  mutate(recovery = AP/` R`)
 
-#prettySummary_calibration(calibrations,"Diclofenac")
+summary_table <- plot_table %>% group_by(Cmp,short_sample) %>% summarize(mean = mean(recovery))
 
-#preds <- output %>%
-#  group_by(Batch) %>%
-#  do(getSamplePredictions(.)) %>%
-#  inner_join(output)
+ggplot(plot_table, aes(x = short_sample, y = recovery)) +
+    theme_bw()+
+  #geom_boxplot(aes(color = Cmp)) +
+  geom_point(data = summary_table, aes(x = short_sample, y = mean), shape = 95, size = 10, color = "black")+
+  geom_point(aes(color = Cmp), size = 2) +
+  facet_wrap(~Cmp, ncol = 6) +
+  guides(color = FALSE)
 
-#plot_table <- preds %>%
-#  mutate(group = paste0(substr(Sample.Desc,1,3), str_extract(Sample.Desc,"[a-z,A-Z]+")))
 
-#ggplot(plot_table) +
-#  theme_bw()+
-#  geom_point(aes(x = group, y= estimate)) +
-#  #geom_errorbar(aes(x = Sample.ID, ymin = lower, ymax = upper))+
-#  stat_summary(aes(x = group, y= estimate),
-#               fun.data=mean_sdl, 
-#               fun.args = list(mult=1), 
-#               color = "red",
-#               geom = "errorbar",
-#               width = 0.2)+
-#  facet_wrap(~Cmp)

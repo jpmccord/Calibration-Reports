@@ -13,9 +13,9 @@ check.packages <- function(package){
   sapply(package, require, character.only = TRUE)
 }
 
-suppressWarnings(suppressPackageStartupMessages(check.packages(c("tidyverse", "readxl", "investr", "broom", "kableExtra"))))
+suppressWarnings(suppressPackageStartupMessages(check.packages(c("tidyverse", "readxl", "investr", "broom", "here", "kableExtra"))))
 
-knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(echo = FALSE, messages = FALSE)
 
 source("readWatersQQQReport.R")
 source("calibration.R")
@@ -143,14 +143,12 @@ cSummary <- prettySummary_calibration(calibrations, the.Compounds)  %>%
   left_join(cSummary) %>%
   select(Sample.Name, Sample.Desc, `Run Order`, Raw.Response, ISTD.Response, Std.Conc, estimate, lower, upper, dev) 
 
-cSummary_table <- cSummary %>%
-  mutate(dev = cell_spec(dev, "html", color = ifelse(abs(dev) > 20, "red", "black"))) %>%
+ cSummary_table <- cSummary %>%
+  #mutate(dev = cell_spec(dev, "latex", color = ifelse(abs(dev) > 20, "red", "black"))) %>%
   rename(`% Dev` = dev,
          Estimated.Conc = estimate,
          lower_est = lower,
-         upper_est = upper) %>%
-  kable(align = "c") %>%
-  kable_styling(c("striped","condensed"), full_width =FALSE)
+         upper_est = upper)
 
 cSummary_table
 }

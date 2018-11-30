@@ -73,7 +73,9 @@ unnested <- f6(list) %>% mutate(Cmp = calibref,
   mutate(Sample.Type = case_when(Sample.Type %in% c("Standard", "Standard Bracket Sample", "Std", "Std Bracket Sample") ~ "Standard",
                                  Sample.Type %in% c("Blank", "Blank Sample") ~ "Blank",
                                  Sample.Type %in% c("Analyte", "Unknown Sample", "Unknown") ~ "Sample",
-                                 Sample.Type %in% c("QC", "QC Sample") ~ "QC"))
+                                 Sample.Type %in% c("QC", "QC Sample") ~ "QC"),
+         ISTD.Response = ifelse(ISTD.Response == 0, NA, ISTD.Response),
+         Raw.Response = ifelse(is.na(Raw.Response), 0, Raw.Response))
 return(unnested)
 
 }
