@@ -59,6 +59,8 @@ plot_table <- myMergedData %>%
   mutate(short_sample = ifelse(short_sample == "2.5", "3.0", short_sample)) %>%
   mutate(recovery = AP/` R`)
 
+write_csv(plot_table, "paired_samples.csv")
+
 summary_table <- plot_table %>% group_by(Cmp,short_sample) %>% summarize(mean = mean(recovery))
 
 ggplot(plot_table, aes(x = short_sample, y = recovery)) +

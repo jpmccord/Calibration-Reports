@@ -60,7 +60,6 @@ f6 <- function(x) {
 unnested <- f6(list) %>% mutate(Cmp = calibref,
                             Raw.Response = as.numeric(area1),
                             ISTD.Response = as.numeric(area),
-                            Area.Ratio = Raw.Response/ISTD.Response,
                             Sample.Type = type,
                             Sample.Name = name,
                             Sample.ID = id,
@@ -69,13 +68,14 @@ unnested <- f6(list) %>% mutate(Cmp = calibref,
                             Peak.Status = pkflags,
                             Batch = basename(.attrs.filename),
                             Instr.Est = as.numeric(analconc))%>%
-  select(Cmp,Raw.Response,ISTD.Response,Area.Ratio,Instr.Est,Sample.Type,Sample.Name,Sample.Desc,Sample.ID,Exp.Amt,Peak.Status,Batch) %>%
+  select(Cmp,Raw.Response,ISTD.Response,Instr.Est,Sample.Type,Sample.Name,Sample.Desc,Sample.ID,Exp.Amt,Peak.Status,Batch) %>%
   mutate(Sample.Type = case_when(Sample.Type %in% c("Standard", "Standard Bracket Sample", "Std", "Std Bracket Sample") ~ "Standard",
                                  Sample.Type %in% c("Blank", "Blank Sample") ~ "Blank",
                                  Sample.Type %in% c("Analyte", "Unknown Sample", "Unknown") ~ "Sample",
                                  Sample.Type %in% c("QC", "QC Sample") ~ "QC"),
-         ISTD.Response = ifelse(ISTD.Response == 0, NA, ISTD.Response),
-         Raw.Response = ifelse(is.na(Raw.Response), 0, Raw.Response))
+         ISTD.Response = ifelse(ISTD.Response == 0 , 1, ISTD.Response),
+         Raw.Response = ifelse(is.na(Raw.Response), 0, Raw.Response),
+         Area.Ratio = Raw.Response/ISTD.Response)
 return(unnested)
 
 }
