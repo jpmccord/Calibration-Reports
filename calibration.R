@@ -52,7 +52,7 @@ calibrateCmp <- function(Comp, dataset) {
 
 calibrateDataset <- function(data) {
   quant_compounds <- data %>% group_by(Cmp) %>%
-    summarize(ISTD.Response = mean(ISTD.Response)) %>%
+    summarize(ISTD.Response = mean(ISTD.Response, na.rm = TRUE)) %>%
     filter(!is.na(ISTD.Response) & ISTD.Response > 1)
   
   sapply(quant_compounds$Cmp, dataset = data, FUN = calibrateCmp)
