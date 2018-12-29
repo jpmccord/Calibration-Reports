@@ -1,0 +1,12 @@
+---
+title: "Targeted Chemistry Full Report"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Data processing of `r batch_n` instrumental batches reporting on `r cmp_n` targeted compounds and totalling `r sample_n` experimental runs.
+
+The runs consisted of `r QC_n` QC samples, `r blank_n` blanks, `r standard_n` calibration standards, and `r subject_n` analytical runs.
