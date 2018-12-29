@@ -56,8 +56,18 @@ plot_table <- myMergedData %>%
   select(Cmp, sample, Estimated.Conc, prep_type) %>%
   spread(prep_type, Estimated.Conc) %>%
   mutate(short_sample = substr(sample,1,3)) %>%
-  mutate(short_sample = ifelse(short_sample == "2.5", "3.0", short_sample)) %>%
+  mutate(short_sample = ifelse(short_sample == "2.5", "3.0", short_sample),
+         short_sample = ifelse(short_sample == "3.0", "3000", short_sample)) %>%
   mutate(recovery = AP/` R`)
+
+plot_table$short_sample <- factor(plot_table$short_sample, levels = c("250", "750", "3000"))
+plot_table$Cmp <- factor(plot_table$Cmp, levels = c("Atrazine", "DIA",
+                                                   "Carbofuran", "-OH Carbofuran",
+                                                   "Diclofenac", "-OH Diclofenac",
+                                                   "Dextromethorphan", "Dextrophan",
+                                                   "Phenacetin", "Acetaminophen",
+                                                   "Chlorzoxazone", "OH Chlorzoxazone",
+                                                   "Bupropion", "-OH Bupropion"))
 
 write_csv(plot_table, "paired_samples.csv")
 
@@ -68,7 +78,9 @@ ggplot(plot_table, aes(x = short_sample, y = recovery)) +
   #geom_boxplot(aes(color = Cmp)) +
   geom_point(data = summary_table, aes(x = short_sample, y = mean), shape = 95, size = 10, color = "black")+
   geom_point(aes(color = Cmp), size = 2) +
-  facet_wrap(~Cmp, ncol = 6) +
-  guides(color = FALSE)
+  facet_wrap(~Cmp, ncol = 4) +
+  guides(color = FALSE) +
+  labs(x = "Dose Level (nM)",
+         y = "Recovery %")
 
 
